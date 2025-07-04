@@ -3,7 +3,7 @@ const cors = require("cors");
 const jwt = require("jsonwebtoken");
 const http = require('http');
 const { Server } = require("socket.io");
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 require("dotenv").config();
 
@@ -91,50 +91,129 @@ async function runDbAndServer() {
 
     // Chat Endpoints
     app.post('/chat/send-message', verifyToken, async (req, res) => {
-      const { history, message } = req.body;
-      const userEmail = req.decoded.email;
-      try {
+    try {
+        const db = await connectToDatabase();
+        const conversationsCollection = db.collection("conversations");
+        // conversationId এখন ফ্রন্টএন্ড থেকে আসবে
+        let { conversationId, history, message } = req.body;
+        const userEmail = req.decoded.email;
+        const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+
+        // জেমিনি থেকে উত্তর নিন
         const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
         const chat = model.startChat({ history });
         const result = await chat.sendMessage(message);
         const aiResponseText = result.response.text();
 
-        await conversationsCollection.updateOne(
-          { userEmail },
-          { $push: { messages: { $each: [{ role: 'user', parts: [{ text: message }], timestamp: new Date() }, { role: 'model', parts: [{ text: aiResponseText }], timestamp: new Date() }] } } },
-          { upsert: true }
-        );
-        res.send({ response: aiResponseText });
-      } catch (error) {
-        console.error("Error communicating with Gemini or saving chat:", error);
-        res.status(500).send({ message: "Failed to get response from AI." });
-      }
-    });
+        let updatedConversationId = conversationId;
 
-    app.get('/chat/history', verifyToken, async (req, res) => {
-      const userEmail = req.decoded.email;
-      try {
-        const conversation = await conversationsCollection.findOne({ userEmail });
-        res.send(conversation ? conversation.messages : []);
-      } catch (error) {
-        console.error("Error fetching chat history:", error);
-        res.status(500).send({ message: "Failed to fetch chat history." });
-      }
-    });
+        // যদি conversationId না থাকে, তার মানে এটি একটি নতুন চ্যাট
+        if (!conversationId) {
+            // চ্যাটের প্রথম মেসেজ থেকে একটি শিরোনাম তৈরি করুন
+            const titlePrompt = `Summarize this message in 3-5 words to use as a title: "${message}"`;
+            const titleResult = await model.generateContent(titlePrompt);
+            const title = titleResult.response.text().replace(/"/g, '').trim();
 
-    app.delete('/chat/history', verifyToken, async (req, res) => {
-        const userEmail = req.decoded.email;
-        try {
-            const result = await conversationsCollection.updateOne(
-                { userEmail },
-                { $set: { messages: [] } }
+            // ডাটাবেজে নতুন ডকুমেন্ট তৈরি করুন
+            const newConversation = await conversationsCollection.insertOne({
+                userEmail,
+                title,
+                messages: [
+                    { role: 'user', parts: [{ text: message }], timestamp: new Date() },
+                    { role: 'model', parts: [{ text: aiResponseText }], timestamp: new Date() }
+                ],
+                createdAt: new Date()
+            });
+            updatedConversationId = newConversation.insertedId;
+        } else {
+            // যদি পুরনো চ্যাট হয়, তাহলে শুধু মেসেজ যোগ করুন
+            await conversationsCollection.updateOne(
+                { _id: new ObjectId(conversationId), userEmail },
+                { $push: { messages: { $each: [
+                    { role: 'user', parts: [{ text: message }], timestamp: new Date() },
+                    { role: 'model', parts: [{ text: aiResponseText }], timestamp: new Date() }
+                ]}}}
             );
-            res.send({ message: "Chat history cleared successfully.", modifiedCount: result.modifiedCount });
-        } catch (error) {
-            console.error("Error clearing chat history:", error);
-            res.status(500).send({ message: "Failed to clear chat history." });
         }
-    });
+        
+        // ফ্রন্টএন্ডকে নতুন conversationId (যদি তৈরি হয়) এবং উত্তর পাঠান
+        res.send({ response: aiResponseText, conversationId: updatedConversationId });
+
+    } catch (error) {
+        console.error("Error sending message:", error);
+        res.status(500).send({ message: "Failed to get response from AI." });
+    }
+});
+
+    app.get('/conversations/:id', verifyToken, async (req, res) => {
+    try {
+        const db = await connectToDatabase();
+        const conversationsCollection = db.collection("conversations");
+        const { id } = req.params;
+        const userEmail = req.decoded.email;
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid conversation ID." });
+        }
+
+        const conversation = await conversationsCollection.findOne({ 
+            _id: new ObjectId(id), 
+            userEmail // নিশ্চিত করুন যে ইউজার শুধুমাত্র নিজের চ্যাটই দেখতে পারে
+        });
+
+        if (!conversation) {
+            return res.status(404).send({ message: "Conversation not found." });
+        }
+        
+        res.send(conversation.messages);
+    } catch (error) {
+        console.error("Failed to fetch messages:", error);
+        res.status(500).send({ message: "Failed to fetch messages." });
+    }
+});
+
+app.delete('/conversations/:id', verifyToken, async (req, res) => {
+    try {
+        const db = await connectToDatabase();
+        const conversationsCollection = db.collection("conversations");
+        const { id } = req.params;
+        const userEmail = req.decoded.email;
+
+        if (!ObjectId.isValid(id)) {
+            return res.status(400).send({ message: "Invalid conversation ID." });
+        }
+
+        const result = await conversationsCollection.deleteOne({ _id: new ObjectId(id), userEmail });
+
+        if (result.deletedCount === 0) {
+            return res.status(404).send({ message: "Conversation not found or you don't have permission to delete it." });
+        }
+
+        res.send({ message: "Conversation deleted successfully." });
+    } catch (error) {
+        console.error("Failed to delete conversation:", error);
+        res.status(500).send({ message: "Failed to delete conversation." });
+    }
+});
+
+    app.get('/conversations', verifyToken, async (req, res) => {
+    try {
+        const db = await connectToDatabase();
+        const conversationsCollection = db.collection("conversations");
+        const userEmail = req.decoded.email;
+        
+        const conversations = await conversationsCollection
+            .find({ userEmail })
+            .project({ title: 1, createdAt: 1 }) // শুধুমাত্র শিরোনাম এবং তৈরির তারিখ পাঠান
+            .sort({ createdAt: -1 })
+            .toArray();
+            
+        res.send(conversations);
+    } catch (error) {
+        console.error("Failed to fetch conversations:", error);
+        res.status(500).send({ message: "Failed to fetch conversations." });
+    }
+});
 
     // Root Endpoint
     app.get("/", (req, res) => {
