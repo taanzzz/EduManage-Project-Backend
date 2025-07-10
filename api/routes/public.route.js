@@ -10,4 +10,6 @@ router.get('/feedback', publicController.getAllFeedback);
 
 router.get('/popular-classes', publicController.getPopularClasses);
 
+router.get('/banners', publicController.getActiveBanners);
+
 module.exports = router;

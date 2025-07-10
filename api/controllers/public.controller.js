@@ -48,3 +48,13 @@ exports.getPopularClasses = async (req, res) => {
         res.status(500).send({ message: "Failed to fetch popular classes." });
     }
 };
+
+exports.getActiveBanners = async (req, res) => {
+    try {
+        const { bannersCollection } = getCollections();
+        const banners = await bannersCollection.find({ isActive: true }).toArray();
+        res.send(banners);
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch banners." });
+    }
+};
