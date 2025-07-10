@@ -33,3 +33,18 @@ exports.getAllFeedback = async (req, res) => {
         res.status(500).send({ message: "Failed to fetch feedback" });
     }
 };
+
+exports.getPopularClasses = async (req, res) => {
+    try {
+        const { classesCollection } = getCollections();
+        const popularClasses = await classesCollection
+            .find({ status: 'approved' }) 
+            .sort({ totalEnrollment: -1 }) 
+            .limit(6) 
+            .toArray();
+        
+        res.send(popularClasses);
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch popular classes." });
+    }
+};

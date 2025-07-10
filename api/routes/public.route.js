@@ -8,4 +8,6 @@ router.get('/stats', publicController.getHomepageStats);
 // Route to get all feedback for the homepage carousel
 router.get('/feedback', publicController.getAllFeedback);
 
+router.get('/popular-classes', publicController.getPopularClasses);
+
 module.exports = router;
