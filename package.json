@@ -1,22 +1,24 @@
 {
-  "name": "chatbot-server",
+  "name": "edumanage-server",
   "version": "1.0.0",
-  "description": "Backend server for the Gemini Chatbot",
-  "main": "api/index.js",
+  "description": "Backend server for the EduManage educational platform.",
+  "main": "index.js",
   "scripts": {
-    "start": "node api/index.js",
-    "dev": "vercel dev",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "author": "",
+  "author": "Porosh",
   "license": "ISC",
   "dependencies": {
-    "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "mongodb": "^6.8.0",
-    "socket.io": "^4.7.5"
+    "stripe": "^18.3.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.4"
   }
 }
