@@ -25,7 +25,8 @@ const connectDB = async () => {
     collections.assignmentsCollection = db.collection("assignments");
     collections.submissionsCollection = db.collection("submissions");
     collections.feedbackCollection = db.collection("feedback");
-    collections.enrollmentsCollection = db.collection("enrollments"); 
+    collections.enrollmentsCollection = db.collection("enrollments");
+    collections.bannersCollection = db.collection("banners"); 
 
     console.log("✅ MongoDB is successfully connected!");
   } catch (err) {
