@@ -45,6 +45,7 @@ async function startServer() {
     app.use('/api/classes', classRoutes);
     app.use('/api/teacher', teacherRoutes);
     app.use('/api/payments', paymentRoutes);
+    app.use('/api/feedback', feedbackRoutes);
     app.use('/api/public', publicRoutes);
     app.use('/api/payments', paymentRoutes);
     app.use('/api/enrollments', enrollmentRoutes);
