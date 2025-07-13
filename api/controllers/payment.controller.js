@@ -48,3 +48,29 @@ exports.createPaymentIntent = async (req, res) => {
         res.status(500).send({ message: error.message });
     }
 };
+
+exports.getMyOrders = async (req, res) => {
+    const { email } = req.params;
+    if (req.decoded.email !== email) {
+        return res.status(403).send({ message: "Forbidden access." });
+    }
+    const { paymentsCollection } = getCollections();
+    try {
+        const orders = await paymentsCollection.aggregate([
+            { $match: { userEmail: email } },
+            {
+                $lookup: {
+                    from: 'classes',
+                    localField: 'classId',
+                    foreignField: '_id',
+                    as: 'classDetails'
+                }
+            },
+            { $unwind: '$classDetails' },
+            { $sort: { createdAt: -1 } }
+        ]).toArray();
+        res.send(orders);
+    } catch (error) {
+        res.status(500).send({ message: "Failed to fetch order history." });
+    }
+};
