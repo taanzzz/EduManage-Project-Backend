@@ -58,3 +58,47 @@ exports.getActiveBanners = async (req, res) => {
         res.status(500).send({ message: "Failed to fetch banners." });
     }
 };
+
+exports.getFeaturedTeachers = async (req, res) => {
+    try {
+        const { classesCollection } = getCollections();
+        const featuredTeachers = await classesCollection.aggregate([
+            { $match: { status: 'approved' } },
+            { 
+                $group: {
+                    _id: "$teacher.email",
+                    name: { $first: "$teacher.name" },
+                    totalEnrollment: { $sum: "$totalEnrollment" }
+                } 
+            },
+            { $sort: { totalEnrollment: -1 } },
+            { $limit: 6 },
+            
+            {
+                $lookup: {
+                    from: "users",
+                    localField: "_id", 
+                    foreignField: "email",
+                    as: "teacherDetails"
+                }
+            },
+            {
+                $unwind: "$teacherDetails"
+            },
+            {
+                $project: {
+                    _id: "$teacherDetails._id",
+                    name: "$teacherDetails.name",
+                    email: "$teacherDetails.email",
+                    image: "$teacherDetails.image",
+                    totalEnrollment: "$totalEnrollment"
+                }
+            }
+        ]).toArray();
+        
+        res.send(featuredTeachers);
+    } catch (error) {
+        console.error("Failed to fetch featured teachers:", error);
+        res.status(500).send({ message: "Failed to fetch featured teachers." });
+    }
+};

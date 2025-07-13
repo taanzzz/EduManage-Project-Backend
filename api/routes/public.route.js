@@ -13,4 +13,6 @@ router.get('/popular-classes', publicController.getPopularClasses);
 
 router.get('/banners', publicController.getActiveBanners);
 
+router.get('/featured-teachers', publicController.getFeaturedTeachers);
+
 module.exports = router;
