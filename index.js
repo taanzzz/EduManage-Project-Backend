@@ -15,6 +15,7 @@ const enrollmentRoutes = require('./api/routes/enrollment.route');
 const assignmentRoutes = require('./api/routes/assignment.route');
 const feedbackRoutes = require('./api/routes/feedback.route');
 const submissionRoutes = require('./api/routes/submission.route');
+const chatRoutes = require('./api/routes/chat.route');
  
 
 // --- Initialization ---
@@ -51,6 +52,7 @@ async function startServer() {
     app.use('/api/assignments', assignmentRoutes);
     app.use('/api/feedback', feedbackRoutes);
     app.use('/api/submissions', submissionRoutes);
+    app.use('/api/chat', chatRoutes);
 
 
     // --- Root Endpoint ---
